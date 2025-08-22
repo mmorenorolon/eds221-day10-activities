@@ -1,0 +1,117 @@
+---
+title: "ice-cover-duration"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(ggbeeswarm)
+```
+
+```{r}
+ice_cover_duration <- read_csv(here("data", "ice_duration.csv"), na = "-999")
+met_data <- read_csv(here("data", "meteorological_data.csv"), na = "")
+```
+
+```{r}
+#Ice duration by lake
+
+plot1 <- ggplot(ice_cover_duration, aes(x = lakeid, y = ice_duration)) +
+  geom_boxplot(outlier.shape = NA) + 
+  geom_beeswarm(alpha = 0.5, 
+                size = 1.5) +
+  labs(
+    title = "Ice Duration Across Madison Lakes",
+    x = "Lake",
+    y = "Ice Duration (Days)"
+  ) + theme_light()
+
+ggsave(here("figs", "lakeid_iceduration.png"), plot1)
+```
+
+```{r}
+#Mean Ice Cover Duration by Year
+mean_ice_duration_year <- ice_cover_duration %>% 
+  group_by(year4) %>% 
+  summarise(mean_ice_duration = mean(ice_duration, na.rm = TRUE)) %>% 
+  ungroup()
+
+plot2 <- ggplot(mean_ice_duration_year, aes(x = year4, y = mean_ice_duration)) +
+  geom_line(color = "blue2") +
+  geom_point(color = "blue4") + 
+  labs(title = "Mean Ice Cover Duration in Madison Lake Area by Year",
+       x = "Year",
+       y = "Mean Ice Cover Duration (Days)",
+       caption = "The figure displays a decrease in mean ice cover duration over time.") +
+  theme_light()
+
+ggsave(here("figs", "mean_iceduration.png"), plot2)
+```
+
+```{r}
+#Mean winter temperature by year (Dec, Jan, Feb)
+winter_met <- met_data %>% 
+  filter(month %in% c(12,1,2))
+
+mean_temp_year <- winter_met %>% 
+  group_by(year4) %>% 
+  summarise(mean_winter_temp = mean(ave_air_temp_adjusted, na.rm = TRUE)) %>% 
+  ungroup()
+
+plot3 <- ggplot(mean_temp_year, aes(x = year4, y = mean_winter_temp)) +
+  geom_line(color = "cyan4") +
+  geom_point() +
+  labs(title = "Mean Winter Temparature by Year",
+       x = "Year",
+       y = "Mean Winter Temperature (Celcius)",
+       caption = "According to the figure, the average temperature for the Madison Area lakes during winter has increased over time.") + 
+  theme_light()
+
+ggsave(here("figs", "ave_temp_by_year.png"), plot3)
+```
+
+```{r}
+#Join Ice Duration and Temperature
+ice_met_joined <- left_join(mean_ice_duration_year, mean_temp_year, 
+                            by = "year4")
+
+plot4 <- ggplot(ice_met_joined, aes(x = mean_ice_duration, 
+                                    y = mean_winter_temp)) + 
+  geom_point(color = "cyan4", alpha = 0.5) +
+  labs(title = "Mean Winter Temperature by Year",
+       x = "Mean Ice Duration (Days)",
+       y = "Mean Winter Temperature (Celcius)",
+       caption = "The relationship between mean ice temperature and mean ice duration is negative.\nThis relationship indicates that as as winter temperatures increase, ice cover duration decreases.") +
+  theme_light()
+
+ggsave(here("figs", "ice_met_joined.png"), plot4)
+```
+
+```{r}
+#Thaw dates since 1970
+
+ice_since_1970 <- ice_cover_duration %>% 
+  filter(year4 >= 1970) %>% 
+  mutate(ice_off = ymd(ice_off), 
+         ice_off_day = yday(ice_off)) 
+
+plot5 <- ggplot(ice_since_1970, aes(x = year4, y = ice_off_day)) +
+  geom_point(color = "steelblue3", alpha = 0.7) +
+  geom_smooth(method = "loess", 
+              se = FALSE,
+              color = "steelblue4",
+              alpha = 0.9) +
+  labs(
+    title = "Thaw Dates Since 1970",
+    x = "Year",
+    y = "Day of Year (Thaw)",
+    caption = "Since 1970, the day of the year where ice starts to thaw has decreased, indicating ice begins to melt sooner in the winter"
+  ) + theme_light()
+
+ggsave(here("figs", "ice_since_1970.png"), plot5)
+```
+
